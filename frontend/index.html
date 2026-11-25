@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Brute-Force Attack Detector</title>
+<link rel="icon" href="assets/shield.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/style.css">
+<!-- Fallback: these few rules work even if css/style.css could not be loaded,
+     so the help message below is readable and the icons stay small. -->
+<style>
+  svg { width: 18px; height: 18px; }
+  #load-help { font: 16px/1.5 system-ui, sans-serif; margin: 16px; padding: 16px 20px;
+               border: 2px solid #EF4444; border-radius: 8px; max-width: 720px; }
+</style>
+</head>
+<body>
+<!-- Shown only when css/style.css did NOT load (style.css hides it). -->
+<div id="load-help">
+  <b>The dashboard's files did not load.</b><br>
+  Do not open index.html directly, and never from inside the ZIP.<br>
+  1. Extract the whole ZIP (right-click, "Extract All").<br>
+  2. In the BruteForceDetector folder run <b>.\run.bat</b> and keep that window open.<br>
+  3. Type <b>http://localhost:8080</b> into the browser's address bar (or the address run.bat prints).
+</div>
+<!-- All numbers on this page come from the C program (GET /api/state).
+     The JavaScript only displays them; it does not detect anything. -->
+<div class="layout">
+  <aside class="sidebar" aria-label="Main navigation">
+    <div class="brand">
+      <img src="assets/shield.svg" alt="" width="26" height="26">
+      <div>
+        <div class="brand-name">Login Guard</div>
+        <div class="brand-sub">Brute-force detector</div>
+      </div>
+    </div>
+    <nav>
+      <a href="#overview" data-page="overview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>Overview</a>
+      <a href="#live" data-page="live"><svg viewBox="0 0 24 24"><polyline points="3 12 7 12 10 4 14 20 17 12 21 12"/></svg>Live monitoring</a>
+      <a href="#intel" data-page="intel"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="1" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="23" y2="12"/></svg>Threat intelligence</a>
+      <a href="#blocked" data-page="blocked"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><line x1="8" y1="8" x2="16" y2="16"/></svg>Blocked IPs<span class="nav-count" id="nav-blocked">0</span></a>
+      <a href="#simulator" data-page="simulator"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><line x1="7" y1="15" x2="17" y2="15"/></svg>Attack simulator</a>
+      <a href="#performance" data-page="performance"><svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="20"/><rect x="6" y="11" width="3" height="9"/><rect x="11" y="6" width="3" height="14"/><rect x="16" y="14" width="3" height="6"/></svg>Performance analysis</a>
+      <a href="#settings" data-page="settings"><svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="7" cy="18" r="2"/></svg>Settings</a>
+    </nav>
+    <p class="sidebar-note">Simulation only. Blocking is simulated; no firewall or system setting is changed.</p>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="run-state">
+        <span class="pill" id="mode-pill">Connecting…</span>
+        <div class="clock">
+          <span class="clock-time" id="sim-time">--</span>
+          <span class="clock-source" id="source-text">Waiting for the C engine</span>
+        </div>
+      </div>
+      <div class="progress" aria-hidden="true"><div class="progress-bar" id="progress-bar"></div></div>
+      <div class="controls">
+        <label class="speed">Speed
+          <select id="speed-select" aria-label="Simulation speed">
+            <option value="1">1×</option><option value="5">5×</option><option value="20">20×</option>
+            <option value="60">60×</option><option value="300">300×</option>
+          </select>
+        </label>
+        <button class="btn" id="btn-start">Start</button>
+        <button class="btn btn-quiet" id="btn-pause">Pause</button>
+      </div>
+    </header>
+
+    <div id="offline" class="offline" hidden>
+      Cannot reach detector.exe. Start it with <code>.\run.bat</code> and keep that window open.
+    </div>
+    <div id="showcase-banner" class="showcase-banner" hidden>
+      <span style="font-weight:600; color:#38BDF8;">⚡ Live Web Showcase Mode</span> — Displaying verified C11 multi-window engine benchmark data & interactive SOC simulation. For local socket integration, run <code>.\run.bat</code> locally.
+    </div>
+
+    <!-- ===================== Overview ===================== -->
+    <section class="page" id="page-overview">
+      <h1>Overview</h1>
+      <div class="stat-strip">
+        <div class="stat"><span class="stat-value" id="s-total">0</span><span class="stat-label">Login attempts</span></div>
+        <div class="stat"><span class="stat-value" id="s-failed">0</span><span class="stat-label">Failed attempts</span></div>
+        <div class="stat"><span class="stat-value warn" id="s-threats">0</span><span class="stat-label">Active threats</span></div>
+        <div class="stat"><span class="stat-value crit" id="s-blocked">0</span><span class="stat-label">IPs blocked now</span></div>
+      </div>
+      <div class="grid-2-1">
+        <div class="panel">
+          <div class="panel-head"><h2>Activity per simulated minute</h2>
+            <div class="legend"><span class="key k-attempts"></span>Attempts<span class="key k-failed"></span>Failed<span class="key k-susp"></span>From suspicious IPs</div></div>
+          <canvas id="chart-timeline" height="220"></canvas>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Suspicious IPs by attack type</h2></div>
+          <div id="category-bars" class="hbars"></div>
+          <p class="fine" id="dist-users"></p>
+        </div>
+      </div>
+      <div class="grid-2-1">
+        <div class="panel">
+          <div class="panel-head"><h2>Most dangerous IPs</h2><a class="link" href="#intel">See all ten</a></div>
+          <div id="top5" class="scroll-x"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>Recent alerts</h2></div>
+          <ul class="alerts" id="alerts-overview"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Live monitoring ===================== -->
+    <section class="page" id="page-live" hidden>
+      <h1>Live monitoring</h1>
+      <div class="toolbar">
+        <input type="search" id="live-search" placeholder="Search IP or username" aria-label="Search IP or username">
+        <select id="live-filter" aria-label="Filter by event type">
+          <option value="all">All events</option>
+          <option value="failed">Failed logins</option>
+          <option value="success">Successful logins</option>
+          <option value="suspicious">Suspicious (flagged IPs)</option>
+          <option value="blocked">Blocked attempts</option>
+          <option value="Fast brute-force">Fast brute-force</option>
+          <option value="Low-and-slow">Low-and-slow</option>
+          <option value="Credential stuffing">Credential stuffing</option>
+          <option value="Distributed attack">Distributed attack</option>
+        </select>
+        <span class="spacer"></span>
+        <button class="btn" data-action="start">Start</button>
+        <button class="btn btn-quiet" data-action="pause">Pause</button>
+        <button class="btn btn-quiet" data-action="clear">Clear table</button>
+      </div>
+      <div class="panel flush">
+        <table class="table">
+          <thead><tr><th>Time</th><th>IP address</th><th>Username</th><th>Status</th><th>Detector says</th><th class="num">Score</th></tr></thead>
+          <tbody id="live-body"></tbody>
+        </table>
+        <p class="empty" id="live-empty">No events yet. Start a run on the Attack simulator page or load the sample log.</p>
+      </div>
+      <p class="fine" id="live-count"></p>
+    </section>
+
+    <!-- ===================== Threat intelligence ===================== -->
+    <section class="page" id="page-intel" hidden>
+      <h1>Threat intelligence</h1>
+      <p class="lede">The ten highest threat scores, read from the max heap. The three bars show each IP's failures in the 10&nbsp;s, 10&nbsp;min and 1&nbsp;h windows against the thresholds in Settings.</p>
+      <div class="panel flush">
+        <table class="table">
+          <thead><tr><th>#</th><th>IP address</th><th class="num">Score</th><th>Severity</th><th>Attack type</th><th>Failures in 10 s / 10 min / 1 h</th><th class="num">Failed</th><th class="num">Usernames</th><th>State</th></tr></thead>
+          <tbody id="intel-body"></tbody>
+        </table>
+        <p class="empty" id="intel-empty">No IP has a threat score yet.</p>
+      </div>
+    </section>
+
+    <!-- ===================== Blocked IPs ===================== -->
+    <section class="page" id="page-blocked" hidden>
+      <h1>Blocked IPs</h1>
+      <p class="lede">Simulated bans, in the order they end (front of the circular queue first). Times are simulation time.</p>
+      <div class="panel flush">
+        <table class="table">
+          <thead><tr><th>IP address</th><th>Reason</th><th class="num">Score</th><th>Blocked at</th><th>Expires at</th><th>Remaining</th><th></th></tr></thead>
+          <tbody id="blocked-body"></tbody>
+        </table>
+        <p class="empty" id="blocked-empty">No IP is blocked right now.</p>
+      </div>
+      <p class="fine">Unblocking also clears that IP's windows, so it starts again with a score of zero.</p>
+    </section>
+
+    <!-- ===================== Attack simulator ===================== -->
+    <section class="page" id="page-simulator" hidden>
+      <h1>Attack simulator</h1>
+      <div class="grid-1-2">
+        <form class="panel form" id="sim-form" autocomplete="off">
+          <h2>Scenario</h2>
+          <fieldset class="types">
+            <legend>Attack type</legend>
+            <label><input type="radio" name="type" value="fast" checked><span><b>Fast brute-force</b>One IP, a try every 1–2 s</span></label>
+            <label><input type="radio" name="type" value="slow"><span><b>Low-and-slow</b>One try every 1–2.5 min</span></label>
+            <label><input type="radio" name="type" value="stuffing"><span><b>Credential stuffing</b>A new leaked username each try</span></label>
+            <label><input type="radio" name="type" value="distributed"><span><b>Distributed attack</b>Many IPs, one username</span></label>
+            <label><input type="radio" name="type" value="mixed"><span><b>All attacks together</b>Every type at once</span></label>
+            <label><input type="radio" name="type" value="normal"><span><b>Normal users only</b>No attack, for checking false alarms</span></label>
+          </fieldset>
+          <div class="fields">
+            <label>Attack attempts<input type="number" name="attempts" min="1" max="5000" value="60"></label>
+            <label>Attacker IPs<input type="number" name="ips" min="1" max="500" value="1"></label>
+            <label>Target username<input type="text" name="username" maxlength="32" value="admin"></label>
+            <label>Normal users<input type="number" name="users" min="0" max="500" value="25"></label>
+            <label>Random seed<input type="number" name="seed" min="0" value="2026"></label>
+          </div>
+          <p class="fine">The same seed always produces the same events.</p>
+          <div class="form-actions">
+            <button type="submit" class="btn">Start simulation</button>
+            <button type="button" class="btn btn-quiet" data-action="pause">Pause</button>
+            <button type="button" class="btn btn-quiet" data-action="reset">Reset</button>
+          </div>
+          <h2 class="space-top">Or replay a log file</h2>
+          <div class="form-actions">
+            <button type="button" class="btn btn-quiet" id="btn-sample">Load sample log</button>
+            <label class="btn btn-quiet file-btn">Upload CSV…<input type="file" id="csv-file" accept=".csv,.log,.txt"></label>
+          </div>
+          <p class="fine">Format: <code>2026-11-20 12:30:15,192.168.1.10,admin,FAILED</code></p>
+          <p class="fine" id="parse-info"></p>
+        </form>
+        <div class="stack-col">
+          <div class="panel">
+            <div class="panel-head"><h2 id="sim-title">Run status</h2><span class="fine" id="sim-progress"></span></div>
+            <div class="mini-stats">
+              <div><span id="m-events">0</span>events processed</div>
+              <div><span id="m-alerts">0</span>alerts</div>
+              <div><span id="m-bans">0</span>bans started</div>
+              <div><span id="m-blockedev">0</span>attempts stopped</div>
+            </div>
+          </div>
+          <div class="panel flush">
+            <div class="panel-head pad"><h2>Events as the detector classifies them</h2></div>
+            <table class="table compact">
+              <thead><tr><th>Time</th><th>IP address</th><th>Username</th><th>Status</th><th>Detector says</th></tr></thead>
+              <tbody id="sim-feed"></tbody>
+            </table>
+            <p class="empty" id="sim-empty">Choose a scenario and start the simulation.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== Performance ===================== -->
+    <section class="page" id="page-performance" hidden>
+      <h1>Performance analysis</h1>
+      <p class="lede">Runs the single-rule baseline (block after 5 failures in 60 s) and the multi-window detector on the same labelled, simulated streams. Every value below is measured by the C program when you press the button.</p>
+      <div class="toolbar">
+        <label class="inline">Seeds per attack type <input type="number" id="eval-seeds" min="1" max="20" value="5"></label>
+        <label class="inline">Events for the speed test <input type="number" id="eval-events" min="10000" max="2000000" step="10000" value="300000"></label>
+        <button class="btn" id="btn-eval">Run evaluation</button>
+        <span class="fine" id="eval-status"></span>
+      </div>
+      <div id="eval-results" hidden>
+        <div class="grid-2-1">
+          <div class="panel">
+            <div class="panel-head"><h2>Detection rate by attack type</h2>
+              <div class="legend"><span class="key k-proposed"></span>Multi-window<span class="key k-baseline"></span>Baseline</div></div>
+            <canvas id="chart-eval" height="240"></canvas>
+          </div>
+          <div class="panel">
+            <h2>False alarms and speed</h2>
+            <dl class="facts" id="eval-facts"></dl>
+          </div>
+        </div>
+        <div class="panel flush">
+          <table class="table">
+            <thead><tr><th>Attack type</th><th class="num">Attacker IPs</th><th class="num">Detected</th><th class="num">Right category</th><th class="num">Blocked</th><th class="num">Baseline detected</th><th class="num">Time to detect</th><th class="num">Baseline time</th></tr></thead>
+            <tbody id="eval-body"></tbody>
+          </table>
+        </div>
+        <p class="fine" id="eval-note"></p>
+      </div>
+      <p class="empty boxed" id="eval-empty">No results yet. Press <b>Run evaluation</b>; it takes a few seconds.</p>
+    </section>
+
+    <!-- ===================== Settings ===================== -->
+    <section class="page" id="page-settings" hidden>
+      <h1>Settings</h1>
+      <form class="panel form settings" id="settings-form" autocomplete="off">
+        <div class="setting">
+          <label for="set-short">Fast brute-force threshold</label>
+          <input id="set-short" name="short" type="number" min="1" max="1000">
+          <p>Failures from one IP inside 10 seconds that mark it as a possible fast brute-force attack.</p>
+        </div>
+        <div class="setting">
+          <label for="set-medium">Low-and-slow threshold (10 minutes)</label>
+          <input id="set-medium" name="medium" type="number" min="1" max="10000">
+          <p>Failures inside 10 minutes that count as a slow attack when they are spread out (not a burst).</p>
+        </div>
+        <div class="setting">
+          <label for="set-long">Low-and-slow threshold (1 hour)</label>
+          <input id="set-long" name="long" type="number" min="1" max="100000">
+          <p>Failures inside one hour that count as a slow attack. Catches bots that wait minutes between tries.</p>
+        </div>
+        <div class="setting">
+          <label for="set-score">Ban score</label>
+          <input id="set-score" name="score" type="number" min="1" step="0.5">
+          <p>When an IP's threat score reaches this value after a failed login, it is blocked (simulated). Lower means stricter.</p>
+        </div>
+        <div class="setting">
+          <label for="set-ban">Ban duration (seconds)</label>
+          <input id="set-ban" name="ban" type="number" min="10" max="86400">
+          <p>How long a simulated block lasts. A change applies to new bans only; running bans keep their end time.</p>
+        </div>
+        <details class="weights">
+          <summary>Score weights</summary>
+          <p class="fine">score = short × 10 s failures + medium × 10 min failures + long × 1 h failures + username × (distinct usernames − 1) + target × failures on a username under distributed attack + recent (if a failure happened in the last 10 s).</p>
+          <div class="fields">
+            <label>Short<input name="w_short" type="number" step="0.5" min="0"></label>
+            <label>Medium<input name="w_medium" type="number" step="0.5" min="0"></label>
+            <label>Long<input name="w_long" type="number" step="0.5" min="0"></label>
+            <label>Username<input name="w_username" type="number" step="0.5" min="0"></label>
+            <label>Target<input name="w_target" type="number" step="0.5" min="0"></label>
+            <label>Recent<input name="w_recent" type="number" step="0.5" min="0"></label>
+          </div>
+        </details>
+        <div class="form-actions">
+          <button type="submit" class="btn">Save settings</button>
+          <button type="button" class="btn btn-quiet" id="btn-undo">Undo last change</button>
+          <button type="button" class="btn btn-quiet" id="btn-defaults">Restore defaults</button>
+        </div>
+        <p class="fine" id="fixed-rules"></p>
+      </form>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="js/app.js"></script>
+</body>
+</html>
