@@ -321,7 +321,7 @@ function renderTopbar() {
   const names = { running: "Running", paused: "Paused", finished: "Replay finished", idle: "Idle" };
   pill.textContent = names[state.mode] || state.mode;
   pill.className = "pill " + state.mode;
-  $("sim-time").textContent = state.sim_time || "No data loaded";
+  if ($("sim-time")) $("sim-time").style.display = "none";
   let source = esc(state.source);
   if (state.source.includes("sample_auth.log")) source += '<span class="tag">sample data</span>';
   else if (state.source.startsWith("Simulation")) source += '<span class="tag">simulated</span>';
