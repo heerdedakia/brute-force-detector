@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Brute-Force Attack Detector</title>
 <link rel="icon" href="assets/shield.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/style.css?v=4">
+<link rel="stylesheet" href="css/style.css?v=10">
 <!-- Fallback: these few rules work even if css/style.css could not be loaded,
      so the help message below is readable and the icons stay small. -->
 <style>
@@ -88,7 +88,9 @@
         <div class="panel">
           <div class="panel-head"><h2>Activity per simulated minute</h2>
             <div class="legend"><span class="key k-attempts"></span>Attempts<span class="key k-failed"></span>Failed<span class="key k-susp"></span>From suspicious IPs</div></div>
-          <canvas id="chart-timeline" height="220" style="background:#0F172A !important; width:100%; height:220px; display:block; border-radius:8px; border:1px solid #1E293B;"></canvas>
+          <div class="chart-wrapper" style="position:relative; width:100%; height:220px; background:#0B1120; border:1px solid #1E293B; border-radius:8px; overflow:hidden;">
+            <svg id="chart-timeline" width="100%" height="220" viewBox="0 0 600 220" preserveAspectRatio="none" style="display:block; width:100%; height:220px; background:#0B1120;"></svg>
+          </div>
         </div>
         <div class="panel">
           <div class="panel-head"><h2>Suspicious IPs by attack type</h2></div>
@@ -309,6 +311,6 @@
   </div>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="js/app.js?v=4"></script>
+<script src="js/app.js?v=10"></script>
 </body>
 </html>

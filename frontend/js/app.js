@@ -576,213 +576,129 @@ function setupChartInteraction(canvas) {
   });
 }
 
-function drawLineChart(canvas, labels, series) {
-  setupChartInteraction(canvas);
-  window.lastRenderTimeline = () => drawLineChart(canvas, labels, series);
+function drawLineChart(target, labels, series) {
+  if (!target) return;
   
-  const prep = prepareCanvas(canvas);
-  if (!prep) return;
-  const { ctx, width, height } = prep;
-  
-  const left = 42, right = 16, top = 20, bottom = 28;
-  const plotW = Math.max(10, width - left - right);
-  const plotH = Math.max(10, height - top - bottom);
-  const allZero = series.every((s) => s.values.every((v) => v === 0));
-
-  // Determine dynamic scale
-  const rawMax = Math.max(1, ...series.flatMap((s) => s.values));
-  const max = allZero ? 10 : niceMax(rawMax);
-  
-  // 1. Draw Grid Lines (Horizontal)
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = top + plotH - (plotH * i) / 4;
-    ctx.strokeStyle = i === 0 ? "#334155" : "rgba(51, 65, 85, 0.4)";
-    ctx.beginPath();
-    ctx.moveTo(left, y + 0.5);
-    ctx.lineTo(width - right, y + 0.5);
-    ctx.stroke();
-
-    // Y-Axis numeric label
-    ctx.fillStyle = "#64748B";
-    ctx.textAlign = "right";
-    ctx.font = "11px 'Cascadia Mono', monospace, sans-serif";
-    ctx.fillText(String(Math.round((max * i) / 4)), left - 8, y + 4);
+  // If target is an SVG element
+  if (target.tagName && target.tagName.toLowerCase() === "svg") {
+    drawSvgTimeline(target, labels, series);
+    return;
   }
+}
 
-  // 2. Draw X-Axis Labels
+function drawSvgTimeline(svg, labels, series) {
+  const W = 600, H = 220;
+  const left = 40, right = 16, top = 20, bottom = 26;
+  const plotW = W - left - right;
+  const plotH = H - top - bottom;
+  
+  const allZero = series.every(s => s.values.every(v => v === 0));
+  const rawMax = Math.max(1, ...series.flatMap(s => s.values));
+  const max = allZero ? 10 : niceMax(rawMax);
   const count = labels.length || 1;
   const step = plotW / Math.max(1, count - 1);
-  ctx.fillStyle = "#64748B";
-  ctx.font = "11px 'Segoe UI', system-ui, sans-serif";
+
+  let out = `
+    <defs>
+      <linearGradient id="grad-attempts" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#38BDF8" stop-opacity="0.0"/>
+      </linearGradient>
+      <linearGradient id="grad-failed" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.30"/>
+        <stop offset="100%" stop-color="#F59E0B" stop-opacity="0.0"/>
+      </linearGradient>
+      <linearGradient id="grad-suspicious" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#EF4444" stop-opacity="0.45"/>
+        <stop offset="100%" stop-color="#EF4444" stop-opacity="0.0"/>
+      </linearGradient>
+      <filter id="glow-red" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="0" stdDeviation="3" flood-color="#EF4444" flood-opacity="0.8"/>
+      </filter>
+      <filter id="glow-blue" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="0" stdDeviation="2" flood-color="#38BDF8" flood-opacity="0.6"/>
+      </filter>
+    </defs>
+    <!-- Dark Slate Cyber Background -->
+    <rect width="${W}" height="${H}" fill="#0B1120" rx="8"/>
+  `;
+
+  // Grid Lines and Y-Axis Labels
+  for (let i = 0; i <= 4; i++) {
+    const y = top + plotH - (plotH * i) / 4;
+    out += `<line x1="${left}" y1="${y}" x2="${W - right}" y2="${y}" stroke="${i === 0 ? '#334155' : 'rgba(51, 65, 85, 0.45)'}" stroke-width="1"/>`;
+    out += `<text x="${left - 8}" y="${y + 4}" fill="#64748B" font-size="10" font-family="'Cascadia Mono', monospace" text-anchor="end">${Math.round((max * i) / 4)}</text>`;
+  }
+
+  // X-Axis Labels
   labels.forEach((label, i) => {
     if (i % 5 !== 0 && i !== count - 1) return;
     const x = left + i * step;
-    ctx.textAlign = i === count - 1 ? "right" : i === 0 ? "left" : "center";
-    ctx.fillText(label, x, height - 8);
+    const anchor = i === count - 1 ? 'end' : i === 0 ? 'start' : 'middle';
+    out += `<text x="${x}" y="${H - 8}" fill="#64748B" font-size="10" font-family="'Segoe UI', sans-serif" text-anchor="${anchor}">${label}</text>`;
   });
 
-  // 3. Zero-data state: Display sleek cyber telemetry pulse
   if (allZero) {
-    // Subtle baseline guide
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.15)";
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(left, top + plotH);
-    ctx.lineTo(width - right, top + plotH);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Elegant cyber status badge
-    const badgeW = 340, badgeH = 50;
-    const badgeX = left + (plotW - badgeW) / 2;
-    const badgeY = top + (plotH - badgeH) / 2;
-
-    ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
-    ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 8) : ctx.rect(badgeX, badgeY, badgeW, badgeH);
-    ctx.fill();
-    ctx.stroke();
-
-    // Pulse dot
-    ctx.fillStyle = "#22C55E";
-    ctx.beginPath();
-    ctx.arc(badgeX + 24, badgeY + 25, 4.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Badge text
-    ctx.fillStyle = "#F8FAFC";
-    ctx.textAlign = "left";
-    ctx.font = "600 13px 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText("Real-Time Ingestion Stream Active", badgeX + 38, badgeY + 21);
-
-    ctx.fillStyle = "#94A3B8";
-    ctx.font = "11px 'Segoe UI', system-ui, sans-serif";
-    ctx.fillText("Click 'Start' or run an Attack Simulation to stream events", badgeX + 38, badgeY + 38);
+    // Pulse line guide
+    out += `<line x1="${left}" y1="${top + plotH}" x2="${W - right}" y2="${top + plotH}" stroke="rgba(56, 189, 248, 0.2)" stroke-dasharray="4,4" stroke-width="1.5"/>`;
+    
+    // Status Badge
+    const bw = 320, bh = 46, bx = left + (plotW - bw) / 2, by = top + (plotH - bh) / 2;
+    out += `
+      <rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="8" fill="rgba(15, 23, 42, 0.92)" stroke="#1E293B" stroke-width="1.5"/>
+      <circle cx="${bx + 20}" cy="${by + 23}" r="4" fill="#22C55E"/>
+      <text x="${bx + 34}" y="${by + 20}" fill="#F8FAFC" font-size="12" font-weight="600" font-family="'Segoe UI', sans-serif">Real-Time Ingestion Active</text>
+      <text x="${bx + 34}" y="${by + 36}" fill="#94A3B8" font-size="10.5" font-family="'Segoe UI', sans-serif">Click "Start" on top or run an Attack Simulation</text>
+    `;
+    svg.innerHTML = out;
     return;
   }
 
-  // 4. Render Active Data Series with Gradients, Glow & Curves
-  // Order: Attempts (Blue) -> Failed (Amber) -> Suspicious (Red)
+  // Draw Series (Attempts, Failed, Suspicious)
+  const gradMap = { "#64748B": "url(#grad-attempts)", "#F59E0B": "url(#grad-failed)", "#EF4444": "url(#grad-suspicious)", "#38BDF8": "url(#grad-attempts)" };
+
   series.forEach((s) => {
     if (!s.values || s.values.length === 0) return;
-
-    // Gradient fill under the curve
-    const grad = ctx.createLinearGradient(0, top, 0, top + plotH);
-    if (s.color.includes("EF4444")) {
-      grad.addColorStop(0, "rgba(239, 68, 68, 0.35)");
-      grad.addColorStop(1, "rgba(239, 68, 68, 0.0)");
-    } else if (s.color.includes("F59E0B")) {
-      grad.addColorStop(0, "rgba(245, 158, 11, 0.25)");
-      grad.addColorStop(1, "rgba(245, 158, 11, 0.0)");
-    } else {
-      grad.addColorStop(0, "rgba(56, 189, 248, 0.22)");
-      grad.addColorStop(1, "rgba(56, 189, 248, 0.0)");
-    }
-
-    // Path calculation
-    ctx.beginPath();
+    let dLine = "", dArea = "";
+    
     s.values.forEach((v, i) => {
       const x = left + i * step;
       const y = top + plotH - (plotH * Math.min(max, Math.max(0, v))) / max;
       if (i === 0) {
-        ctx.moveTo(x, y);
+        dLine += `M ${x.toFixed(1)} ${y.toFixed(1)}`;
+        dArea += `M ${x.toFixed(1)} ${(top + plotH).toFixed(1)} L ${x.toFixed(1)} ${y.toFixed(1)}`;
       } else {
-        ctx.lineTo(x, y);
+        dLine += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+        dArea += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
       }
     });
 
-    // Fill area
-    ctx.save();
-    const lastX = left + (s.values.length - 1) * step;
-    ctx.lineTo(lastX, top + plotH);
-    ctx.lineTo(left, top + plotH);
-    ctx.closePath();
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.restore();
+    const lastX = (left + (s.values.length - 1) * step).toFixed(1);
+    dArea += ` L ${lastX} ${(top + plotH).toFixed(1)} Z`;
 
-    // Stroke line with subtle glow
-    ctx.save();
-    ctx.strokeStyle = s.color;
-    ctx.lineWidth = s.color.includes("EF4444") ? 2.5 : 2.0;
-    ctx.shadowColor = s.color;
-    ctx.shadowBlur = 4;
-    ctx.beginPath();
-    s.values.forEach((v, i) => {
-      const x = left + i * step;
-      const y = top + plotH - (plotH * Math.min(max, Math.max(0, v))) / max;
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-    ctx.restore();
+    const color = s.color.includes("64748B") ? "#38BDF8" : s.color;
+    const grad = gradMap[s.color] || gradMap["#38BDF8"];
 
-    // Data-point dots for suspicious peaks
-    if (s.color.includes("EF4444")) {
+    // Area fill
+    out += `<path d="${dArea}" fill="${grad}"/>`;
+
+    // Line stroke with glow
+    const filter = color === "#EF4444" ? 'filter="url(#glow-red)"' : color === "#38BDF8" ? 'filter="url(#glow-blue)"' : '';
+    out += `<path d="${dLine}" fill="none" stroke="${color}" stroke-width="${color === '#EF4444' ? '2.5' : '2'}" ${filter}/>`;
+
+    // Peak dots for suspicious spikes
+    if (color === "#EF4444") {
       s.values.forEach((v, i) => {
         if (v > 0) {
           const x = left + i * step;
           const y = top + plotH - (plotH * Math.min(max, v)) / max;
-          ctx.fillStyle = "#EF4444";
-          ctx.beginPath();
-          ctx.arc(x, y, 3, 0, Math.PI * 2);
-          ctx.fill();
+          out += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="#EF4444" stroke="#0B1120" stroke-width="1"/>`;
         }
       });
     }
   });
 
-  // 5. Interactive Hover Crosshair & Tooltip
-  if (hoverX !== null && hoverX >= left && hoverX <= width - right) {
-    const idx = Math.min(count - 1, Math.max(0, Math.round((hoverX - left) / step)));
-    const snapX = left + idx * step;
-
-    // Crosshair line
-    ctx.save();
-    ctx.strokeStyle = "rgba(148, 163, 184, 0.45)";
-    ctx.setLineDash([3, 3]);
-    ctx.beginPath();
-    ctx.moveTo(snapX, top);
-    ctx.lineTo(snapX, top + plotH);
-    ctx.stroke();
-    ctx.restore();
-
-    // Tooltip data
-    const timeLabel = labels[idx] || "";
-    const attVal = series[0]?.values[idx] || 0;
-    const failVal = series[1]?.values[idx] || 0;
-    const suspVal = series[2]?.values[idx] || 0;
-
-    const tipW = 160, tipH = 68;
-    let tipX = snapX + 12;
-    if (tipX + tipW > width - right) tipX = snapX - tipW - 12;
-    const tipY = top + 8;
-
-    ctx.fillStyle = "rgba(15, 23, 42, 0.94)";
-    ctx.strokeStyle = "#38BDF8";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect ? ctx.roundRect(tipX, tipY, tipW, tipH, 6) : ctx.rect(tipX, tipY, tipW, tipH);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#94A3B8";
-    ctx.font = "bold 11px sans-serif";
-    ctx.fillText(`Time: ${timeLabel}`, tipX + 8, tipY + 16);
-
-    ctx.fillStyle = "#38BDF8";
-    ctx.font = "11px sans-serif";
-    ctx.fillText(`Attempts: ${attVal}`, tipX + 8, tipY + 32);
-
-    ctx.fillStyle = "#F59E0B";
-    ctx.fillText(`Failed: ${failVal}`, tipX + 8, tipY + 46);
-
-    ctx.fillStyle = "#EF4444";
-    ctx.fillText(`Suspicious: ${suspVal}`, tipX + 8, tipY + 60);
-  }
+  svg.innerHTML = out;
 }
 function drawBarChart(canvas, labels, series) {
   const prep = prepareCanvas(canvas);

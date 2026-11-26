@@ -268,3 +268,7 @@ canvas { width: 100% !important; max-width: 100% !important; height: 220px !impo
   * { transition: none !important; }
 }
 .scroll-x { overflow-x: auto; }
+
+/* Chart SVG styling - guaranteed dark, immune to canvas blockers */
+.chart-wrapper { width: 100% !important; height: 220px !important; background: #0B1120 !important; border: 1px solid #1E293B !important; border-radius: 8px !important; box-sizing: border-box !important; }
+svg#chart-timeline { width: 100% !important; height: 220px !important; display: block !important; background: #0B1120 !important; }
